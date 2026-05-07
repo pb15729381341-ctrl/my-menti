@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentimeter Clone - 管理员控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center text-blue-600">题目管理控制台</h1>
+        
+        <!-- 添加题目表单 -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">录入新题目</h2>
+            <form id="questionForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">题目内容</label>
+                    <textarea id="text" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">选项 A</label>
+                        <input type="text" id="optA" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">选项 B</label>
+                        <input type="text" id="optB" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">选项 C</label>
+                        <input type="text" id="optC" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">选项 D</label>
+                        <input type="text" id="optD" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">正确答案</label>
+                    <select id="answer" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">保存题目</button>
+            </form>
+        </div>
+
+        <!-- 批量导入题目 -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8 border-t-4 border-green-500">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">批量文本导入</h2>
+                <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">推荐用于 Word/WPS 备课</span>
+            </div>
+            <div class="bg-gray-50 p-3 rounded text-sm text-gray-600 mb-4 font-mono">
+                <p class="font-bold text-gray-800 mb-1">格式示例：</p>
+                题目：光合作用主要在哪个细胞器中进行？<br>
+                A. 线粒体<br>
+                B. 叶绿体<br>
+                C. 核糖体<br>
+                D. 内质网<br>
+                答案：B
+            </div>
+            <textarea id="importText" rows="8" placeholder="在此粘贴多道题目，题目之间可用空行隔开..." class="w-full border-gray-300 rounded-md shadow-sm p-3 border focus:ring-green-500 focus:border-green-500 mb-4 text-sm"></textarea>
+            <button onclick="importBulkText()" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition font-medium">解析并导入</button>
+        </div>
+
+        <!-- 题目列表 -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">当前题库</h2>
+            <div id="questionList" class="space-y-4">
+                <!-- 题目项将在这里动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('questionForm');
+        const list = document.getElementById('questionList');
+
+        // 加载题目列表
+        async function loadQuestions() {
+            const res = await fetch('/api/questions');
+            const questions = await res.json();
+            list.innerHTML = '';
+            questions.forEach(q => {
+                const div = document.createElement('div');
+                div.className = 'border-b pb-4 flex justify-between items-start';
+                div.innerHTML = `
+                    <div>
+                        <p class="font-medium">${q.text}</p>
+                        <p class="text-sm text-gray-500">答案: ${q.answer} | 选项: A:${q.options.A}, B:${q.options.B}, C:${q.options.C}, D:${q.options.D}</p>
+                    </div>
+                    <button onclick="deleteQuestion(${q.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">删除</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // 提交表单
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const q = {
+                text: document.getElementById('text').value,
+                options: {
+                    A: document.getElementById('optA').value,
+                    B: document.getElementById('optB').value,
+                    C: document.getElementById('optC').value,
+                    D: document.getElementById('optD').value
+                },
+                answer: document.getElementById('answer').value
+            };
+
+            const res = await fetch('/api/questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(q)
+            });
+
+            if (res.ok) {
+                alert('保存成功！');
+                form.reset();
+                loadQuestions();
+            }
+        };
+
+        // 删除题目
+        async function deleteQuestion(id) {
+            if (confirm('确定要删除这道题吗？')) {
+                await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+                loadQuestions();
+            }
+        }
+
+        // 批量导入
+        async function importBulkText() {
+            const text = document.getElementById('importText').value.trim();
+            if (!text) return alert('请先输入或粘贴题目文本');
+            
+            try {
+                console.log('正在发送导入请求...', { text });
+                const res = await fetch('/api/import_text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                
+                const result = await res.json();
+                console.log('收到后端响应:', result);
+
+                if (res.ok) {
+                    alert(`成功导入 ${result.count} 道题目！`);
+                    document.getElementById('importText').value = '';
+                    loadQuestions();
+                } else {
+                    const errorMsg = result.detail || '格式错误，请检查输入是否符合规范';
+                    alert('导入失败：' + errorMsg);
+                }
+            } catch (err) {
+                console.error('Fetch 错误详情:', err);
+                alert(`请求失败！\n\n可能原因：\n1. 后端服务未启动\n2. 您是直接打开 HTML 文件访问的（请通过 http://localhost:8000/admin 访问）\n3. 网络连接中断\n\n错误信息: ${err.message}`);
+            }
+        }
+
+        loadQuestions();
+    </script>
+</body>
+</html>

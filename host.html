@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentimeter Clone - 主机端</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-indigo-900 text-white min-h-screen flex flex-col">
+    <!-- 顶部状态栏 -->
+    <div class="flex justify-between items-start p-6">
+        <div class="bg-white p-2 rounded-lg shadow-lg flex flex-col items-center">
+            <div id="qrcode"></div>
+            <p class="text-gray-800 text-xs mt-2 font-bold" id="join-url"></p>
+            <button onclick="copyJoinLink()" id="copy-btn" class="mt-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded transition-colors flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                复制加入链接
+            </button>
+        </div>
+        <div class="text-right">
+            <div class="bg-indigo-800 px-4 py-2 rounded-full border border-indigo-400">
+                <span class="text-indigo-200">在线人数:</span>
+                <span id="online-count" class="text-xl font-bold ml-2">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主展示区 -->
+    <div class="flex-grow flex flex-col items-center justify-center p-8">
+        <!-- 初始等待界面 -->
+        <div id="view-waiting" class="text-center space-y-6">
+            <h1 class="text-6xl font-black tracking-tighter">准备好了吗？</h1>
+            <p class="text-2xl text-indigo-300">请扫描左上角二维码加入游戏</p>
+            <button onclick="startGame()" class="bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-2xl transform hover:scale-105 transition">
+                开始游戏
+            </button>
+        </div>
+
+        <!-- 题目展示界面 -->
+        <div id="view-question" class="hidden w-full max-w-4xl space-y-8">
+            <div class="text-center">
+                <p class="text-indigo-300 text-xl mb-2" id="question-index"></p>
+                <h2 class="text-5xl font-bold leading-tight" id="question-text"></h2>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-6 w-full" id="options-grid">
+                <!-- 选项动态加载 -->
+            </div>
+
+            <!-- 进度条 -->
+            <div class="w-full bg-indigo-800 rounded-full h-8 overflow-hidden relative">
+                <div id="answer-progress" class="bg-yellow-400 h-full transition-all duration-500" style="width: 0%"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-sm font-bold">
+                    已答题: <span id="answered-count">0</span> / <span id="total-players">0</span>
+                </div>
+            </div>
+            
+            <div class="text-center">
+                <div id="timer" class="text-4xl font-mono font-bold text-yellow-400">15s</div>
+            </div>
+        </div>
+
+        <!-- 单题结果界面 -->
+        <div id="view-result" class="hidden w-full max-w-4xl space-y-8">
+            <h2 class="text-4xl font-bold text-center">正确答案</h2>
+            <div id="correct-answer-display" class="bg-green-500 p-8 rounded-2xl text-4xl text-center font-bold shadow-2xl"></div>
+            
+            <div class="bg-indigo-800 p-6 rounded-2xl">
+                <h3 class="text-2xl font-bold mb-4 border-b border-indigo-700 pb-2">当前排行榜</h3>
+                <div id="round-leaderboard" class="space-y-3"></div>
+            </div>
+
+            <div class="text-center">
+                <button id="next-btn" onclick="nextQuestion()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold py-3 px-10 rounded-full">
+                    下一题
+                </button>
+            </div>
+        </div>
+
+        <!-- 最终榜单 -->
+        <div id="view-final" class="hidden w-full max-w-2xl space-y-8 relative">
+            <div class="absolute inset-0 pointer-events-none overflow-hidden" id="confetti-container"></div>
+            <h1 class="text-6xl font-black text-center text-yellow-400 italic tracking-widest animate-pulse">
+                WINNERS
+            </h1>
+            <div id="final-leaderboard" class="space-y-6 relative z-10">
+                <!-- Top 3 -->
+            </div>
+            <div class="text-center">
+                <button onclick="location.reload()" class="text-indigo-300 hover:text-white underline transition-colors">重新开始新的一局</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/host`);
+        const qrcodeDiv = document.getElementById('qrcode');
+        const joinUrlText = document.getElementById('join-url');
+        
+        // 初始化二维码
+        const joinUrl = window.location.origin + '/';
+        joinUrlText.innerText = joinUrl;
+        new QRCode(qrcodeDiv, {
+            text: joinUrl,
+            width: 128,
+            height: 128,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+        });
+
+        let timerInterval;
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'status_update') {
+                document.getElementById('online-count').innerText = data.online_count;
+                document.getElementById('total-players').innerText = data.online_count;
+                document.getElementById('answered-count').innerText = data.answers_received;
+                const progress = data.online_count > 0 ? (data.answers_received / data.online_count) * 100 : 0;
+                document.getElementById('answer-progress').style.width = `${progress}%`;
+            }
+
+            if (data.type === 'new_question') {
+                showView('view-question');
+                document.getElementById('question-index').innerText = `Question ${data.index + 1} of ${data.total}`;
+                document.getElementById('question-text').innerText = data.question.text;
+                
+                const grid = document.getElementById('options-grid');
+                grid.innerHTML = '';
+                const colors = { A: 'bg-red-500', B: 'bg-blue-500', C: 'bg-yellow-500', D: 'bg-green-500' };
+                for (let [key, val] of Object.entries(data.question.options)) {
+                    grid.innerHTML += `
+                        <div class="${colors[key]} p-6 rounded-xl text-2xl font-bold flex items-center shadow-lg">
+                            <span class="bg-white text-gray-800 w-10 h-10 rounded-full flex items-center justify-center mr-4">${key}</span>
+                            ${val}
+                        </div>
+                    `;
+                }
+
+                startTimer(data.timeout);
+            }
+
+            if (data.type === 'question_result') {
+                clearInterval(timerInterval);
+                showView('view-result');
+                document.getElementById('correct-answer-display').innerText = `${data.answer}: ${data.answer_text}`;
+                
+                const board = document.getElementById('round-leaderboard');
+                board.innerHTML = data.leaderboard.map((p, i) => `
+                    <div class="flex justify-between items-center text-xl">
+                        <span>${i+1}. ${p.nickname}</span>
+                        <span class="font-mono text-yellow-400">${p.score} pts</span>
+                    </div>
+                `).join('');
+            }
+
+            if (data.type === 'game_finished') {
+                showView('view-final');
+                const board = document.getElementById('final-leaderboard');
+                const medals = ['🥇', '🥈', '🥉'];
+                const animations = ['animate-bounce', '', ''];
+                board.innerHTML = data.leaderboard.map((p, i) => `
+                    <div class="bg-white text-indigo-900 p-6 rounded-2xl flex justify-between items-center transform transition-all duration-500 hover:scale-105 ${i===0?'ring-4 ring-yellow-400 scale-110 shadow-2xl':''} ${animations[i]}">
+                        <div class="flex items-center">
+                            <span class="text-4xl mr-4">${medals[i] || '✨'}</span>
+                            <span class="text-3xl font-black">${p.nickname}</span>
+                        </div>
+                        <span class="text-3xl font-mono font-bold text-indigo-600">${p.score}</span>
+                    </div>
+                `).join('');
+                
+                // 简单的撒花效果
+                createConfetti();
+            }
+        };
+
+        function createConfetti() {
+            const container = document.getElementById('confetti-container');
+            const colors = ['#FBBF24', '#F87171', '#60A5FA', '#34D399', '#A78BFA'];
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'absolute w-2 h-2 rounded-full';
+                particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = '-10px';
+                particle.style.transition = `all ${Math.random() * 3 + 2}s linear`;
+                container.appendChild(particle);
+                
+                setTimeout(() => {
+                    particle.style.top = '100%';
+                    particle.style.left = (parseFloat(particle.style.left) + (Math.random() * 20 - 10)) + '%';
+                    particle.style.opacity = '0';
+                }, 100);
+            }
+        }
+
+        function copyJoinLink() {
+            const joinUrl = window.location.origin + '/';
+            navigator.clipboard.writeText(joinUrl).then(() => {
+                const btn = document.getElementById('copy-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '已复制！';
+                btn.classList.replace('bg-indigo-600', 'bg-green-600');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.replace('bg-green-600', 'bg-indigo-600');
+                }, 2000);
+            });
+        }
+
+        function showView(id) {
+            ['view-waiting', 'view-question', 'view-result', 'view-final'].forEach(v => {
+                document.getElementById(v).classList.add('hidden');
+            });
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function startGame() {
+            ws.send(JSON.stringify({ type: 'start_game' }));
+        }
+
+        function nextQuestion() {
+            ws.send(JSON.stringify({ type: 'next_question' }));
+        }
+
+        function startTimer(seconds) {
+            let left = seconds;
+            const el = document.getElementById('timer');
+            el.innerText = `${left}s`;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                left--;
+                el.innerText = `${left}s`;
+                if (left <= 0) clearInterval(timerInterval);
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
