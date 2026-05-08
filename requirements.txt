@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 fastapi
 uvicorn
 websockets
 pydantic
 python-multipart
+=======
+fastapi
+uvicorn
+websockets
+pydantic
+python-multipart
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb

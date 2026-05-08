@@ -65,15 +65,19 @@
                 答案：B
             </div>
             <textarea id="importText" rows="8" placeholder="在此粘贴多道题目，题目之间可用空行隔开..." class="w-full border-gray-300 rounded-md shadow-sm p-3 border focus:ring-green-500 focus:border-green-500 mb-4 text-sm"></textarea>
+<<<<<<< HEAD
             <div class="flex items-center mb-4">
                 <input type="checkbox" id="replaceExisting" class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
                 <label for="replaceExisting" class="ml-2 block text-sm text-gray-700">覆盖现有题库（清空旧题目并导入新题目）</label>
             </div>
+=======
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb
             <button onclick="importBulkText()" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition font-medium">解析并导入</button>
         </div>
 
         <!-- 题目列表 -->
         <div class="bg-white p-6 rounded-lg shadow-md">
+<<<<<<< HEAD
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold">当前题库</h2>
                 <div class="space-x-2">
@@ -85,6 +89,9 @@
                 <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="h-4 w-4 text-blue-600 border-gray-300 rounded">
                 <label for="selectAll" class="ml-2 text-sm text-gray-600">全选</label>
             </div>
+=======
+            <h2 class="text-xl font-semibold mb-4">当前题库</h2>
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb
             <div id="questionList" class="space-y-4">
                 <!-- 题目项将在这里动态生成 -->
             </div>
@@ -100,6 +107,7 @@
             const res = await fetch('/api/questions');
             const questions = await res.json();
             list.innerHTML = '';
+<<<<<<< HEAD
             document.getElementById('selectAll').checked = false;
             
             if (questions.length === 0) {
@@ -107,16 +115,24 @@
                 return;
             }
 
+=======
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb
             questions.forEach(q => {
                 const div = document.createElement('div');
                 div.className = 'border-b pb-4 flex justify-between items-start';
                 div.innerHTML = `
+<<<<<<< HEAD
                     <div class="flex items-start">
                         <input type="checkbox" name="questionId" value="${q.id}" class="mt-1.5 h-4 w-4 text-blue-600 border-gray-300 rounded">
                         <div class="ml-3">
                             <p class="font-medium">${q.text}</p>
                             <p class="text-sm text-gray-500">答案: ${q.answer} | 选项: A:${q.options.A}, B:${q.options.B}, C:${q.options.C}, D:${q.options.D}</p>
                         </div>
+=======
+                    <div>
+                        <p class="font-medium">${q.text}</p>
+                        <p class="text-sm text-gray-500">答案: ${q.answer} | 选项: A:${q.options.A}, B:${q.options.B}, C:${q.options.C}, D:${q.options.D}</p>
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb
                     </div>
                     <button onclick="deleteQuestion(${q.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">删除</button>
                 `;
@@ -162,6 +178,7 @@
         // 批量导入
         async function importBulkText() {
             const text = document.getElementById('importText').value.trim();
+<<<<<<< HEAD
             const replace = document.getElementById('replaceExisting').checked;
             if (!text) return alert('请先输入或粘贴题目文本');
             
@@ -175,6 +192,16 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text, replace })
+=======
+            if (!text) return alert('请先输入或粘贴题目文本');
+            
+            try {
+                console.log('正在发送导入请求...', { text });
+                const res = await fetch('/api/import_text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb
                 });
                 
                 const result = await res.json();
@@ -183,7 +210,10 @@
                 if (res.ok) {
                     alert(`成功导入 ${result.count} 道题目！`);
                     document.getElementById('importText').value = '';
+<<<<<<< HEAD
                     document.getElementById('replaceExisting').checked = false;
+=======
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb
                     loadQuestions();
                 } else {
                     const errorMsg = result.detail || '格式错误，请检查输入是否符合规范';
@@ -195,6 +225,7 @@
             }
         }
 
+<<<<<<< HEAD
         // 全选/取消全选
         function toggleSelectAll() {
             const selectAll = document.getElementById('selectAll').checked;
@@ -233,6 +264,8 @@
             }
         }
 
+=======
+>>>>>>> 07dbdd940f982121c9abbf624dd16f63e0fcbbfb
         loadQuestions();
     </script>
 </body>
