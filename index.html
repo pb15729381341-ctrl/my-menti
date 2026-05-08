@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Mentimeter Clone - 玩家端</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .btn-tap:active { transform: scale(0.95); opacity: 0.8; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col">
+    <!-- 登录界面 -->
+    <div id="view-login" class="flex-grow flex flex-col items-center justify-center p-6">
+        <h1 class="text-4xl font-bold mb-8 text-indigo-400">加入游戏</h1>
+        <div class="w-full max-w-xs space-y-4">
+            <input type="text" id="nickname" placeholder="输入你的昵称" class="w-full p-4 rounded-xl bg-gray-800 border-2 border-indigo-500 text-white text-center text-xl focus:outline-none focus:border-indigo-400">
+            <button onclick="joinGame()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-4 rounded-xl font-bold text-xl shadow-lg transition">
+                进入大厅
+            </button>
+        </div>
+    </div>
+
+    <!-- 等待室 -->
+    <div id="view-waiting" class="hidden flex-grow flex flex-col items-center justify-center p-6 text-center">
+        <div class="animate-bounce mb-4 text-6xl">🎮</div>
+        <h2 class="text-3xl font-bold mb-2">已成功加入！</h2>
+        <p class="text-gray-400 text-xl" id="display-nickname"></p>
+        <p class="mt-8 text-indigo-300 animate-pulse">等待主持人开始游戏...</p>
+    </div>
+
+    <!-- 答题界面 -->
+    <div id="view-question" class="hidden flex-grow flex flex-col p-4">
+        <div class="h-2 bg-indigo-800 rounded-full mb-4 overflow-hidden">
+            <div id="timer-bar" class="h-full bg-yellow-400 transition-all duration-1000" style="width: 100%"></div>
+        </div>
+        <div class="flex-grow grid grid-cols-2 gap-4">
+            <button onclick="submitAnswer('A')" class="btn-tap bg-red-500 rounded-2xl text-6xl font-black shadow-lg">A</button>
+            <button onclick="submitAnswer('B')" class="btn-tap bg-blue-500 rounded-2xl text-6xl font-black shadow-lg">B</button>
+            <button onclick="submitAnswer('C')" class="btn-tap bg-yellow-500 rounded-2xl text-6xl font-black shadow-lg">C</button>
+            <button onclick="submitAnswer('D')" class="btn-tap bg-green-500 rounded-2xl text-6xl font-black shadow-lg">D</button>
+        </div>
+    </div>
+
+    <!-- 答题后等待 -->
+    <div id="view-answered" class="hidden flex-grow flex flex-col items-center justify-center p-6 text-center">
+        <div class="text-6xl mb-4">⌛</div>
+        <h2 class="text-2xl font-bold">已提交答案！</h2>
+        <p class="mt-4 text-gray-400">等待其他玩家或倒计时结束...</p>
+    </div>
+
+    <!-- 单题结果 -->
+    <div id="view-result" class="hidden flex-grow flex flex-col items-center justify-center p-6 text-center">
+        <div id="result-icon" class="text-8xl mb-4"></div>
+        <h2 id="result-text" class="text-4xl font-bold mb-2"></h2>
+        <p id="result-score" class="text-2xl text-yellow-400 font-mono"></p>
+        <p class="mt-8 text-gray-500">准备下一题...</p>
+    </div>
+
+    <!-- 游戏结束 -->
+    <div id="view-finished" class="hidden flex-grow flex flex-col items-center justify-center p-6 text-center">
+        <h1 class="text-5xl font-black text-indigo-400 mb-4">游戏结束</h1>
+        <div id="final-rank" class="text-2xl space-y-2">
+            <!-- 个人成绩 -->
+        </div>
+        <button onclick="location.reload()" class="mt-12 bg-gray-800 px-8 py-3 rounded-full text-gray-400">退出游戏</button>
+    </div>
+
+    <script>
+        let ws;
+        let myNickname = '';
+        let currentTimeout;
+
+        function showView(id) {
+            ['view-login', 'view-waiting', 'view-question', 'view-answered', 'view-result', 'view-finished'].forEach(v => {
+                document.getElementById(v).classList.add('hidden');
+            });
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function joinGame() {
+            const nick = document.getElementById('nickname').value.trim();
+            if (!nick) return alert('请输入昵称');
+            myNickname = nick;
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/player/${encodeURIComponent(nick)}`);
+            
+            ws.onopen = () => {
+                showView('view-waiting');
+                document.getElementById('display-nickname').innerText = `你好，${nick}`;
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'new_question') {
+                    showView('view-question');
+                    startTimer(data.timeout);
+                }
+
+                if (data.type === 'answer_received') {
+                    showView('view-answered');
+                }
+
+                if (data.type === 'question_result') {
+                    // We don't have per-player result details in this broadcast message 
+                    // except the leaderboard. In a real app, we might send a private msg.
+                    // For now, let's just show the correct answer state if we can.
+                    showView('view-result');
+                    document.getElementById('result-text').innerText = "查看大屏幕！";
+                    document.getElementById('result-icon').innerText = "🧐";
+                }
+
+                if (data.type === 'game_finished') {
+                    showView('view-finished');
+                    const myScore = data.leaderboard.find(p => p.nickname === myNickname);
+                    document.getElementById('final-rank').innerHTML = myScore 
+                        ? `<p>你的最终得分: <span class="text-yellow-400 font-bold">${myScore.score}</span></p>`
+                        : `<p>游戏已结束</p>`;
+                }
+            };
+
+            ws.onclose = () => {
+                alert('连接已断开');
+                location.reload();
+            };
+        }
+
+        function submitAnswer(ans) {
+            ws.send(JSON.stringify({ type: 'answer', answer: ans }));
+        }
+
+        function startTimer(seconds) {
+            const bar = document.getElementById('timer-bar');
+            bar.style.width = '100%';
+            bar.style.transition = 'none';
+            // Force reflow
+            bar.offsetHeight;
+            bar.style.transition = `width ${seconds}s linear`;
+            bar.style.width = '0%';
+        }
+    </script>
+</body>
+</html>
