@@ -100,7 +100,7 @@
         const ws = new WebSocket(`${protocol}//${window.location.host}/ws/host`);
         const qrcodeDiv = document.getElementById('qrcode');
         const joinUrlText = document.getElementById('join-url');
-        
+
         // 初始化二维码
         const joinUrl = window.location.origin + '/';
         joinUrlText.innerText = joinUrl;
@@ -114,8 +114,17 @@
 
         let timerInterval;
 
+        ws.onopen = () => {
+            console.log('Host WS connected');
+        };
+
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            try {
+                var data = JSON.parse(event.data);
+            } catch(e) {
+                console.error('Parse error:', e);
+                return;
+            }
             
             if (data.type === 'status_update') {
                 document.getElementById('online-count').innerText = data.online_count;
@@ -220,12 +229,29 @@
             document.getElementById(id).classList.remove('hidden');
         }
 
+        ws.onclose = (event) => {
+            console.log('Host WS closed:', event.code, event.reason);
+            alert('主持人连接已断开，请刷新页面');
+        };
+
+        ws.onerror = (error) => {
+            console.error('Host WS error:', error);
+        };
+
         function startGame() {
-            ws.send(JSON.stringify({ type: 'start_game' }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'start_game' }));
+            } else {
+                alert('连接未就绪，请刷新页面');
+            }
         }
 
         function nextQuestion() {
-            ws.send(JSON.stringify({ type: 'next_question' }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'next_question' }));
+            } else {
+                alert('连接未就绪，请刷新页面');
+            }
         }
 
         function startTimer(seconds) {
